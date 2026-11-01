@@ -1941,7 +1941,22 @@ double DiffuseIonizedGasMix::interpolateOpacityFromState(double lambda, Material
 
     // only the two grid points bracketing lambda are read, with the same bracketing as NR::clampedValue; a photon
     // below the first characteristic wavelength gets the opacity of the first grid point
-    int i = NR::locate(_opacityWavelengthGrid, lambda);
+    // the bracket and the wavelength factor of the log-log weight depend only on lambda, which is constant along a
+    // photon path; each thread remembers them for its last wavelength (same arithmetic as NR::interpolateLogLog)
+    thread_local const DiffuseIonizedGasMix* memoMix = nullptr;
+    thread_local double memoLambda = -1.;
+    thread_local int memoIndex = 0;
+    thread_local double memoWeight = 0.;
+    if (memoMix != this || memoLambda != lambda)
+    {
+        memoMix = this;
+        memoLambda = lambda;
+        memoIndex = NR::locate(_opacityWavelengthGrid, lambda);
+        if (memoIndex >= 0 && memoIndex < numWavelengths - 1)
+            memoWeight = log(lambda / _opacityWavelengthGrid[memoIndex])
+                         / log(_opacityWavelengthGrid[memoIndex + 1] / _opacityWavelengthGrid[memoIndex]);
+    }
+    int i = memoIndex;
     if (i < 0) return stored(0);
     if (i >= numWavelengths - 1) return stored(numWavelengths - 1);
     double x1 = _opacityWavelengthGrid[i];
@@ -1955,7 +1970,14 @@ double DiffuseIonizedGasMix::interpolateOpacityFromState(double lambda, Material
     // ionizing grid point instead
     if (y2 <= 0. && y1 > 0. && x2 > _lambdaLow && lambda <= lambdaEdgeHI) return y1;
 
-    return NR::interpolateLogLog(lambda, x1, x2, y1, y2);
+    // NR::interpolateLogLog(lambda, x1, x2, y1, y2) with the memoized wavelength factor
+    if (y1 <= 0 || y2 <= 0)
+    {
+        if (lambda == x1) return y1;
+        if (lambda == x2) return y2;
+        return 0;
+    }
+    return y1 * exp(memoWeight * (log(y2 / y1)));
 }
 
 ////////////////////////////////////////////////////////////////////
