@@ -107,6 +107,13 @@ public:
     double opacityAbs(double lambda, const double ionFracs[totalStages], double nH, double yHe,
                       const double metalAbundances[8]) const;
 
+    /** Tabulates the cross sections used by opacityAbs() at the given fixed wavelength grid [m]. */
+    void initializeOpacityGrid(const Array& lambdav);
+
+    /** Returns opacityAbs(lambdav[i], ...) for the grid passed to initializeOpacityGrid(), bit for bit. */
+    double opacityAbsAtGridPoint(int i, const double ionFracs[totalStages], double nH, double yHe,
+                                 const double metalAbundances[8]) const;
+
     /** Initializes ion fractions to a default state (fully ionized for H/He, singly ionized
         for metals). */
     void initializeIonFractions(double ionFracs[]) const;
@@ -173,6 +180,7 @@ private:
     vector<double> _dlambda;    ///< wavelength bin widths [m]
     vector<double> _energy;     ///< photon energy per bin [eV]
     vector<double> _energyErg;  ///< photon energy per bin [erg]
+    vector<double> _opacitySigma;  ///< opacityAbs cross sections at the opacity grid [cm^2], point-major
     vector<double> _sigma;      ///< sigma(ion, _energy[i]) [cm^2], bin-major, fixed after initialize()
 
     //======== Effective stage counts (may be capped by maxIonizationEnergy) =======
