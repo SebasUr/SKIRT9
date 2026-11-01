@@ -10,6 +10,7 @@
 #include "GasLineEmission.hpp"
 #include "PhotoIonizationSolver.hpp"
 #include "StoredTable.hpp"
+#include "ReemissionCdf.hpp"
 #include <array>
 
 //////////////////////////////////////////////////////////////////////
@@ -623,7 +624,6 @@ private:
     // Reemission calculation methods (adapted from CMACIONIZE)
     void calculateReemissionProbabilities(const MaterialState* state, double lambda, ReemissionData& data) const;
     int selectReemissionChannel(const MaterialState* state, double lambda, const PhotonPacket* pp) const;
-    double reemissionChannelWeights(const MaterialState* state, const ReemissionData& data, double weights[]) const;
     double sampleFromTemperatureDependentSpectrum(int spectrumType, double temperature, Random* random) const;
     void interpolateReemissionSpectrum(int spectrumType, double temperature, vector<double>& wavelengths,
                                        vector<double>& cumulativeDist) const;
@@ -692,6 +692,7 @@ private:
     StoredTable<9> _standardOpacityTable;        // 9D Standard opacity: lambda,logU,logR2..5,Z,n_H,delta_id
     StoredTable<8> _transitionOpacityTable;      // 8D Transition opacity: lambda,logU,logR2..5,Z,n_H
     StoredTable<3> _reemissionSpectraTable;      // 3D cumulative probability table
+    ReemissionCdf _reemissionCdf;
 
     // Delta-map table for the multiZ stab (loaded whenever any temperature/opacity stab is on).
     // One StoredTable instance per quantity; both share the same underlying file resource.

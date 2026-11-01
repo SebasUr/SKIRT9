@@ -229,6 +229,11 @@ public:
         the instance was default constructed and open() has not yet been called). */
     bool isOpen() const { return !_filePath.empty(); }
 
+    // Read-only interpolation metadata, for index-based specialized consumers.
+    template<size_t I> bool axisUsesLogInterpolation() const
+    { static_assert(I<N, "Invalid table axis"); return _axLog[I]; }
+    bool quantityUsesLogInterpolation() const { return _qtyLog; }
+
     /** The destructor breaks the association with a stored table resource file established by the
         alternate constructor or the open() function, if there is any. In practice, this simply
         means releasing the memory map on the associated file. */
