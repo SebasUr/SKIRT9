@@ -131,7 +131,11 @@ void MonteCarloSimulation::runPrimaryEmission()
 
     // wait for all processes to finish and synchronize the radiation field
     wait(segment);
-    if (_config->hasRadiationField()) mediumSystem()->communicateRadiationField(true);
+    if (_config->hasRadiationField())
+    {
+        mediumSystem()->communicateRadiationField(true);
+        mediumSystem()->averagePrimaryRadiationField(Npp, 0, true);
+    }
 
     // update secondary dynamic medium state if applicable (in which case we have a medium system)
     if (_config->hasSecondaryDynamicState()) mediumSystem()->updateSecondaryDynamicMediumState();
@@ -317,6 +321,7 @@ void MonteCarloSimulation::runPrimaryEmissionIterations()
             // wait for all processes to finish and synchronize the radiation field
             wait(segment);
             mediumSystem()->communicateRadiationField(true);
+            mediumSystem()->averagePrimaryRadiationField(Npp, iter, false);
 
             // update the primary dynamic medium state and log convergence info
             converged = mediumSystem()->updatePrimaryDynamicMediumState();

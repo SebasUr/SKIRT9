@@ -12,11 +12,29 @@
 
 /** The IterationOptions class simply offers a number of options for configuring iterations during
     primary and/or secondary emission. These options are relevant only when the simulation has a
-    dynamic medium state and/or a dynamic secondary emission. */
+    dynamic medium state and/or a dynamic secondary emission.
+
+    If the \em averagePrimaryField flag is enabled, the primary radiation field used to update the
+    medium state is replaced, after \em primaryFieldAverageBurnIn iterations, by the running mean
+    of the synchronized fields weighted by the number of packets. The final primary emission
+    segment is folded into the same mean. The option is available only for a single static medium
+    with a DiffuseIonizedGasMix, without dust or secondary iterations. */
 class IterationOptions : public SimulationItem
 {
     ITEM_CONCRETE(IterationOptions, SimulationItem,
                   "a set of options for configuring iterations during primary and/or secondary emission")
+
+        PROPERTY_BOOL(averagePrimaryField, "average the primary radiation field over iterations after a burn-in")
+        ATTRIBUTE_DEFAULT_VALUE(averagePrimaryField, "false")
+        ATTRIBUTE_RELEVANT_IF(averagePrimaryField, "IteratePrimary")
+        ATTRIBUTE_DISPLAYED_IF(averagePrimaryField, "Level3")
+
+        PROPERTY_INT(primaryFieldAverageBurnIn, "the number of initial primary iterations excluded from averaging")
+        ATTRIBUTE_MIN_VALUE(primaryFieldAverageBurnIn, "0")
+        ATTRIBUTE_MAX_VALUE(primaryFieldAverageBurnIn, "1000")
+        ATTRIBUTE_DEFAULT_VALUE(primaryFieldAverageBurnIn, "5")
+        ATTRIBUTE_RELEVANT_IF(primaryFieldAverageBurnIn, "IteratePrimary&averagePrimaryField")
+        ATTRIBUTE_DISPLAYED_IF(primaryFieldAverageBurnIn, "Level3")
 
         PROPERTY_INT(minPrimaryIterations, "the minimum number of iterations during primary emission")
         ATTRIBUTE_MIN_VALUE(minPrimaryIterations, "1")

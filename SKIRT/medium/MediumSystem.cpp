@@ -6,6 +6,7 @@
 #include "MediumSystem.hpp"
 #include "Configuration.hpp"
 #include "DensityInCellInterface.hpp"
+#include "DiffuseIonizedGasMix.hpp"
 #include "DisjointWavelengthGrid.hpp"
 #include "FatalError.hpp"
 #include "LockFree.hpp"
@@ -279,6 +280,24 @@ void MediumSystem::setupSelfAfter()
                     _sdms_hv.push_back(h);
                 break;
         }
+    }
+
+    // averaging is supported only for a single static dust-free diffuse ionized gas medium with primary iterations
+    _averagePrimaryField = iterationOptions() && iterationOptions()->averagePrimaryField();
+    if (_averagePrimaryField)
+    {
+        if (!_config->hasPrimaryIterations() || _config->hasSecondaryIterations() || _config->hasMergedIterations()
+            || _config->hasMovingMedia() || _config->storeEmissionRadiationField() || _numMedia != 1 || _mixPerCell
+            || !_dust_hv.empty() || !_elec_hv.empty() || !_sdms_hv.empty() || !dynamicStateOptions()->recipes().empty()
+            || !dynamic_cast<const DiffuseIonizedGasMix*>(mix(0, 0)) || !_config->numPrimaryPackets()
+            || !_config->numPrimaryIterationPackets())
+            throw FATALERROR(
+                "Primary field averaging supports one static dust-free DIG medium with primary-only iterations");
+        _primaryFieldMean.configure(_rf1.size(), iterationOptions()->primaryFieldAverageBurnIn());
+        allocatedBytes += _primaryFieldMean.payloadBytes();
+        log->info("Primary field averaging enabled: burn-in "
+                  + std::to_string(iterationOptions()->primaryFieldAverageBurnIn()) + "; extra field bytes "
+                  + std::to_string(_primaryFieldMean.payloadBytes()));
     }
 
     // ----- inform user about allocated memory -----
@@ -1312,6 +1331,18 @@ void MediumSystem::communicateRadiationField(bool primary)
         ProcessManager::sumToAll(_rf2c.data());
         _rf2 = _rf2c;
     }
+}
+
+////////////////////////////////////////////////////////////////////
+
+void MediumSystem::averagePrimaryRadiationField(size_t packetCount, int iteration, bool finalPass)
+{
+    if (!_averagePrimaryField) return;
+    bool applied = _primaryFieldMean.blend(_rf1.data(), packetCount, iteration, finalPass);
+    find<Log>()->info("Primary field mean: " + string(finalPass ? "final" : "iteration")
+                      + " index=" + std::to_string(iteration) + " applied=" + (applied ? "true" : "false")
+                      + " samples=" + std::to_string(_primaryFieldMean.samples())
+                      + " packetWeight=" + StringUtils::toString(_primaryFieldMean.weight(), 'g', 17));
 }
 
 ////////////////////////////////////////////////////////////////////
