@@ -22,6 +22,7 @@
 #include "SimulationItem.hpp"
 #include "SpatialGrid.hpp"
 #include "Table.hpp"
+#include "PacketWeightedFieldMean.hpp"
 class Configuration;
 class MaterialState;
 class PhotonPacket;
@@ -659,6 +660,9 @@ public:
         synchronized and its contents is copied into the stable secondary table. */
     void communicateRadiationField(bool primary);
 
+    /** Blend a synchronized primary field, before state update or final emission. */
+    void averagePrimaryRadiationField(size_t packetCount, int iteration, bool finalPass);
+
     /** This function returns a pair of values specifying the bolometric luminosity absorbed by
         dust media across the complete domain of the spatial grid, respectively using the partial
         radiation field stored in the primary table and the stable secondary table. The bolometric
@@ -883,6 +887,8 @@ private:
     // - the sum of rf1 and rf2 represents the stable radiation field to be used as input for regular calculations
     // - rf2c serves as a target for storing the secondary radiation field so that rf1+rf2 remain available for
     //   calculating secondary emission spectra while already shooting photons through the grid
+    bool _averagePrimaryField{false};
+    PacketWeightedFieldMean _primaryFieldMean;
     Table<2> _rf1;   // radiation field from primary sources
     Table<2> _rf2;   // radiation field from secondary sources (copied from _rf2c at the appropriate time)
     Table<2> _rf2c;  // radiation field currently being accumulated from secondary sources

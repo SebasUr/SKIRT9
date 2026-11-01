@@ -18,6 +18,18 @@ class IterationOptions : public SimulationItem
     ITEM_CONCRETE(IterationOptions, SimulationItem,
                   "a set of options for configuring iterations during primary and/or secondary emission")
 
+        PROPERTY_BOOL(averagePrimaryField, "average synchronized primary radiation fields after burn-in")
+        ATTRIBUTE_DEFAULT_VALUE(averagePrimaryField, "false")
+        ATTRIBUTE_RELEVANT_IF(averagePrimaryField, "IteratePrimary")
+        ATTRIBUTE_DISPLAYED_IF(averagePrimaryField, "Level3")
+
+        PROPERTY_INT(primaryFieldAverageBurnIn, "the number of initial primary iterations excluded from averaging")
+        ATTRIBUTE_MIN_VALUE(primaryFieldAverageBurnIn, "0")
+        ATTRIBUTE_MAX_VALUE(primaryFieldAverageBurnIn, "1000")
+        ATTRIBUTE_DEFAULT_VALUE(primaryFieldAverageBurnIn, "5")
+        ATTRIBUTE_RELEVANT_IF(primaryFieldAverageBurnIn, "IteratePrimary&averagePrimaryField")
+        ATTRIBUTE_DISPLAYED_IF(primaryFieldAverageBurnIn, "Level3")
+
         PROPERTY_INT(minPrimaryIterations, "the minimum number of iterations during primary emission")
         ATTRIBUTE_MIN_VALUE(minPrimaryIterations, "1")
         ATTRIBUTE_MAX_VALUE(minPrimaryIterations, "1000")
