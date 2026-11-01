@@ -9,6 +9,7 @@
 #include "EmittingGasMix.hpp"
 #include "GasLineEmission.hpp"
 #include "PhotoIonizationSolver.hpp"
+#include "ReemissionCdf.hpp"
 #include "StoredTable.hpp"
 #include <array>
 
@@ -692,6 +693,7 @@ private:
     StoredTable<9> _standardOpacityTable;        // 9D Standard opacity: lambda,logU,logR2..5,Z,n_H,delta_id
     StoredTable<8> _transitionOpacityTable;      // 8D Transition opacity: lambda,logU,logR2..5,Z,n_H
     StoredTable<3> _reemissionSpectraTable;      // 3D cumulative probability table
+    ReemissionCdf _reemissionCdf;                // sampler for the cumulative probability table
 
     // Delta-map table for the multiZ stab (loaded whenever any temperature/opacity stab is on).
     // One StoredTable instance per quantity; both share the same underlying file resource.

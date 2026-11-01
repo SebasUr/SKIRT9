@@ -214,6 +214,7 @@ void DiffuseIonizedGasMix::setupSelfBefore()
     {
         _reemissionSpectraTable.open(this, "DiffuseIonizedGasReemissionSpectra", "type(1),T(K),lambda(m)", "P(1)",
                                      true);
+        _reemissionCdf.initialize(_reemissionSpectraTable);
     }
 
     // Load opacity STAB tables if enabled (tag-subsampled, K tags in lambda axis;
@@ -1569,52 +1570,8 @@ void DiffuseIonizedGasMix::interpolateReemissionSpectrum(int spectrumType, doubl
                                                          vector<double>& wavelengths,
                                                          vector<double>& cumulativeDist) const
 {
-    // Get wavelength grid from STAB table
-    Array lambdaArray;
-    _reemissionSpectraTable.axisArray<2>(lambdaArray);
-
-    wavelengths.resize(lambdaArray.size());
-    cumulativeDist.resize(lambdaArray.size());
-
-    for (size_t i = 0; i < lambdaArray.size(); ++i)
-    {
-        wavelengths[i] = lambdaArray[i];
-    }
-
-    // bracket the temperature for logarithmic interpolation, clamped to the table range
-    const double* temperatures = _reemissionSpectraTable.axisData<1>();
-    size_t numTemperatures = _reemissionSpectraTable.axisSize<1>();
-    double T = max(temperatures[0], min(temperature, temperatures[numTemperatures - 1]));
-    size_t right = std::lower_bound(temperatures, temperatures + numTemperatures, T) - temperatures;
-    right = max(static_cast<size_t>(1), right);
-    double w = (log(T) - log(temperatures[right - 1])) / (log(temperatures[right]) - log(temperatures[right - 1]));
-
-    // interpolate cumulative distribution for each wavelength bin by index
-    // (the wavelength axis of the table is in decreasing order)
-    for (size_t i = 0; i < wavelengths.size(); ++i)
-    {
-        cumulativeDist[i] = (1. - w) * _reemissionSpectraTable.valueAtIndices(spectrumType, right - 1, i)
-                            + w * _reemissionSpectraTable.valueAtIndices(spectrumType, right, i);
-    }
-
-    // Ensure monotonicity and proper normalization
-    for (size_t i = 1; i < cumulativeDist.size(); ++i)
-    {
-        if (cumulativeDist[i] < cumulativeDist[i - 1])
-        {
-            cumulativeDist[i] = cumulativeDist[i - 1];
-        }
-    }
-
-    // Normalize to ensure final value is 1.0
-    if (cumulativeDist.back() > 0.0)
-    {
-        double normalization = 1.0 / cumulativeDist.back();
-        for (double& value : cumulativeDist)
-        {
-            value *= normalization;
-        }
-    }
+    wavelengths = _reemissionCdf.wavelengths();
+    _reemissionCdf.materialize(spectrumType, temperature, cumulativeDist);
 }
 
 ////////////////////////////////////////////////////////////////////
@@ -1622,55 +1579,7 @@ void DiffuseIonizedGasMix::interpolateReemissionSpectrum(int spectrumType, doubl
 double DiffuseIonizedGasMix::sampleFromTemperatureDependentSpectrum(int spectrumType, double temperature,
                                                                     Random* random) const
 {
-    // Cache the last (spectrumType, temperature) CDF so consecutive reemission events at
-    // the same temperature reuse it instead of rebuilding it from STAB lookups.
-    thread_local int cachedSpectrumType = -1;
-    thread_local double cachedTemperature = 0.;
-    thread_local vector<double> cachedWavelengths;
-    thread_local vector<double> cachedCumulativeDist;
-
-    if (spectrumType != cachedSpectrumType || temperature != cachedTemperature)
-    {
-        interpolateReemissionSpectrum(spectrumType, temperature, cachedWavelengths, cachedCumulativeDist);
-        cachedSpectrumType = spectrumType;
-        cachedTemperature = temperature;
-    }
-    const vector<double>& wavelengths = cachedWavelengths;
-    const vector<double>& cumulativeDist = cachedCumulativeDist;
-
-    // Sample using inverse transform method
-    double x = random->uniform();
-
-    // Find position in cumulative distribution
-    auto it = std::lower_bound(cumulativeDist.begin(), cumulativeDist.end(), x);
-
-    if (it == cumulativeDist.end())
-    {
-        return wavelengths.back();
-    }
-
-    size_t index = std::distance(cumulativeDist.begin(), it);
-
-    if (index == 0)
-    {
-        return wavelengths[0];
-    }
-
-    // Linear interpolation between adjacent bins
-    double lambda1 = wavelengths[index - 1];
-    double lambda2 = wavelengths[index];
-    double prob1 = cumulativeDist[index - 1];
-    double prob2 = cumulativeDist[index];
-
-    if (prob2 != prob1)
-    {
-        double fraction = (x - prob1) / (prob2 - prob1);
-        return lambda1 + fraction * (lambda2 - lambda1);
-    }
-    else
-    {
-        return lambda1;
-    }
+    return _reemissionCdf.sample(spectrumType, temperature, random->uniform());
 }
 
 ////////////////////////////////////////////////////////////////////
