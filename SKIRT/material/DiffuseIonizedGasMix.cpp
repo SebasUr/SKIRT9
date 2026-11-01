@@ -1603,24 +1603,38 @@ void DiffuseIonizedGasMix::calculateReemissionProbabilities(const MaterialState*
     // Many of the following are in CGS, but ratios are used eventually
 
     const double T = state->temperature();
-    const double T4 = T * 1e-4;  // Temperature in units of 10^4 K
+    // these coefficients depend only on T; each thread remembers them for its last temperature and recomputes
+    // them with the original expressions only when T changes
+    thread_local bool memoSet = false;
+    thread_local double memoT = 0., memoProbH = 0., memo1He = 0., memo2tS = 0., memo2sS = 0., memo2sP = 0., memoHeTot = 0.;
+    if (!memoSet || memoT != T)
+    {
+        const double T4 = T * 1e-4;  // Temperature in units of 10^4 K
 
-    // Hydrogen reemission probability
-    // Wood, Mathis & Ercolano (2004), equation (24)
-    const double alpha_1_H = 1.58e-13 * std::pow(T4, -0.53);
-    const double alpha_total = 4.18e-13 * std::pow(T4, -0.7);  // value used in CMACIONIZE
-    const double prob_H = alpha_1_H / alpha_total;
+        // Hydrogen reemission probability
+        // Wood, Mathis & Ercolano (2004), equation (24)
+        const double alpha_1_H = 1.58e-13 * std::pow(T4, -0.53);
+        const double alpha_total = 4.18e-13 * std::pow(T4, -0.7);  // value used in CMACIONIZE
+        memoProbH = alpha_1_H / alpha_total;
 
-    // Helium reemission probabilities
-    // Wood, Mathis & Ercolano (2004), equation (25)
-    // The published values differ from the values used in CMACIONIZE;
-    // the CMACIONIZE values are adopted here.
-    const double alpha_1_He = 1.54e-13 * std::pow(T4, -0.486);   // He Lyman continuum
-    const double alpha_e_2tS = 2.1e-13 * std::pow(T4, -0.381);   // 23S
-    const double alpha_e_2sS = 2.06e-14 * std::pow(T4, -0.451);  // 21S
-    const double alpha_e_2sP = 4.17e-14 * std::pow(T4, -0.695);  // 21P
-
-    const double alphaHe_total = alpha_1_He + alpha_e_2tS + alpha_e_2sS + alpha_e_2sP;
+        // Helium reemission probabilities
+        // Wood, Mathis & Ercolano (2004), equation (25)
+        // The published values differ from the values used in CMACIONIZE;
+        // the CMACIONIZE values are adopted here.
+        memo1He = 1.54e-13 * std::pow(T4, -0.486);   // He Lyman continuum
+        memo2tS = 2.1e-13 * std::pow(T4, -0.381);    // 23S
+        memo2sS = 2.06e-14 * std::pow(T4, -0.451);   // 21S
+        memo2sP = 4.17e-14 * std::pow(T4, -0.695);   // 21P
+        memoHeTot = memo1He + memo2tS + memo2sS + memo2sP;
+        memoT = T;
+        memoSet = true;
+    }
+    const double prob_H = memoProbH;
+    const double alpha_1_He = memo1He;
+    const double alpha_e_2tS = memo2tS;
+    const double alpha_e_2sS = memo2sS;
+    const double alpha_e_2sP = memo2sP;
+    const double alphaHe_total = memoHeTot;
 
     // Store individual probabilities (normalized, assume that there are only these channels)
     data.probabilities[ReemissionChannel::Hydrogen] = prob_H;
