@@ -121,6 +121,13 @@ void PhotoIonizationSolver::initialize(const Array& lambdav, const Array& dlambd
         _energy[i] = E_J / Constants::Qelectron();                  // J -> eV
     }
 
+    // the grid is fixed from here on, so tabulate the cross sections once
+    _sigma.resize(static_cast<size_t>(_numBins) * VernerCrossSections::numIons);
+    for (int i = 0; i < _numBins; i++)
+        for (int ion = 0; ion < VernerCrossSections::numIons; ion++)
+            _sigma[static_cast<size_t>(i) * VernerCrossSections::numIons + ion] =
+                VernerCrossSections::sigma(ion, _energy[i]);
+
     // load metal cooling table if path provided
     if (coolingTable) loadCoolingTable();
 
@@ -224,7 +231,7 @@ void PhotoIonizationSolver::computePhotoionizationRates(const Array& Jv, double 
 
         for (int ion = 0; ion < VernerCrossSections::numIons; ion++)
         {
-            double sig = VernerCrossSections::sigma(ion, E_eV);
+            double sig = _sigma[static_cast<size_t>(i) * VernerCrossSections::numIons + ion];
             if (sig > 0.) gamma[ion] += factor * sig;
         }
     }
@@ -275,7 +282,7 @@ double PhotoIonizationSolver::computeHeatingRate(const Array& Jv, const double i
 
         for (int ion = 0; ion < VernerCrossSections::numIons; ion++)
         {
-            double sig = VernerCrossSections::sigma(ion, E_eV);
+            double sig = _sigma[static_cast<size_t>(i) * VernerCrossSections::numIons + ion];
             if (sig <= 0.) continue;
             double IP = VernerCrossSections::ionizationPotential(ion);
             if (E_eV <= IP) continue;
